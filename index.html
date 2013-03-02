@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Local Storage Web Fonts</title>
+        <style>
+            h1 {
+                font-family: 'Patrick Hand SC';
+            }
+            p {
+                font-family: 'Roboto';
+            }
+        </style>
+        <script src="modernizr.custom.52042.js"></script>
+        <script>
+
+var webFonts = {
+    fonts: [
+        {
+            name: 'Patrick Hand SC',
+            url: 'http://themes.googleusercontent.com/static/fonts/patrickhandsc/v1/OYFWCgfCR-7uHIovjUZXscR6S2I7R_2PmaFugZazRjg.woff'
+        },
+        {
+            name: 'Roboto',
+            url: 'http://themes.googleusercontent.com/static/fonts/roboto/v7/CrYjSnGjrRCn0pd9VQsnFOvvDin1pK8aKteLpeZ5c0A.woff'
+        },
+        {
+            name: 'Roboto',
+            url: 'http://themes.googleusercontent.com/static/fonts/roboto/v7/d-6IYplOFocCacKzxwXSOLO3LdcAZYWl9Si6vvxL-qU.woff',
+            properties: {
+                'font-weight': '700'
+            }
+        },
+        {
+            name: 'Roboto',
+            url: 'http://themes.googleusercontent.com/static/fonts/roboto/v7/1pO9eUAp8pSF8VnRTP3xnnYhjbSpvc47ee6xR_80Hnw.woff',
+            properties: {
+                'font-style': 'italic'
+            }
+        },
+        {
+            name: 'Roboto',
+            url: 'http://themes.googleusercontent.com/static/fonts/roboto/v7/t6Nd4cfPRhZP44Q5QAjcC7rIa-7acMAeDBVuclsi6Gc.woff',
+            properties: {
+                'font-style': 'italic',
+                'font-weight': '700'
+            }
+        }        
+    ]
+};
+
+(function() {
+
+    // sanity check
+    if (!('webFonts' in window && 'fonts' in window.webFonts)) {
+        return;
+    }
+    
+    var htmlElement = document.getElementsByTagName('html')[0];
+
+    // we need font face and local storage support. Not sure how to detect WOFF support without going to the dark side
+    if (!(Modernizr.fontface && Modernizr.localstorage)) {
+        htmlElement.className += ' wf-inactive';
+        return;
+    }
+
+    var fonts = window.webFonts.fonts;
+
+    // mark to loading
+    htmlElement.className += ' wf-loading';
+
+    var fontStyleElement = document.createElement('style');
+    document.getElementsByTagName('head')[0].appendChild(fontStyleElement);
+
+    var insertFont = function(name, base64, properties) {
+        var style = fontStyleElement;
+        var sheet = style.sheet || style.styleSheet;
+        var rules = [];
+        rules.push('font-family:"' + name + '";src:url(data:application/x-font-woff;base64,' + base64 + ')');
+        for (var definition in properties) {
+            rules.push(definition + ':' + properties[definition]);
+        }
+        sheet.insertRule('@font-face {' + rules.join(';') + '}', sheet.cssRules.length);
+    };
+
+    var totalFonts = fonts.length;
+    var completeFonts = 0;
+    var loadedFonts = 0;
+
+    var trackFontProgress = function(fontName, fontProperties, loaded) {
+        completeFonts++;
+
+        // did this font load?
+        if (loaded) {
+            loadedFonts++;
+
+            // build quick class name
+            var stylePrefix = ('font-style' in fontProperties && fontProperties['font-style'] == 'italic') ? 'i' : 'n';
+            var weightPrefix = 4;
+            if ('font-weight' in fontProperties) {
+                var match = fontProperties['font-weight'].match(/([1-9])00/);
+                if (match) {
+                    weightPrefix = match[1];
+                }
+            }
+
+            var className = ' wf-' + fontName.toLowerCase().replace(' ', '') + '-' + stylePrefix + weightPrefix + '-' + (loaded ? '' : 'in') + 'active';
+            htmlElement.className += className;
+        }
+
+        // are we done?
+        if (completeFonts >= totalFonts) {
+            if (loadedFonts > 0) {
+                // some fonts loaded - yay!
+                htmlElement.className = htmlElement.className.replace('wf-loading', 'wf-active');
+            } else {
+                // they all failed - GODAMMIT
+                htmlElement.className = htmlElement.className.replace('wf-loading', 'wf-active');
+            }
+        }
+    };
+
+    try {
+        for (var i = 0; i < fonts.length; i++) {
+            var currentFont = fonts[i];
+
+            if (!('name' in currentFont)) {
+                throw 'Font needs a name';
+            }
+
+            if (!('url' in currentFont)) {
+                throw 'At least define a font URL!';
+            }
+
+            var fontName = currentFont.name;
+            var fontUrl = currentFont.url;
+            var fontProperties = ('properties' in currentFont ? currentFont.properties : {});
+
+            // got it in local?
+            if (localStorage.getItem(fontUrl)) {
+                insertFont(fontName, localStorage.getItem(fontUrl), fontProperties);
+                trackFontProgress(fontName, fontProperties, true);
+                continue;
+            }
+
+            // wrapped in a closure for variable isolation
+            (function(fontName, fontUrl, fontProperties) {
+                var xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState != 4) {
+                        return;
+                    }
+
+                    if (xhr.status != 200) {
+                        trackFontProgress(fontName, fontProperties, false);
+                        return;    
+                    }
+
+                    var base64Font = xhr.responseText;
+                    insertFont(
+                        fontName,
+                        base64Font,
+                        fontProperties
+                    );
+                    
+                    // store in local storage
+                    localStorage.setItem(fontUrl, base64Font);
+                    trackFontProgress(fontName, fontProperties, true);
+
+                };
+                xhr.open('GET', 'base64.php?file=' + encodeURIComponent(fontUrl) );
+                xhr.send();
+            })(fontName, fontUrl, fontProperties);
+        }
+    } catch (e) {
+        // we've crashed and burned
+        console.error(e);
+        htmlElement.className = htmlElement.className.replace('wf-loading', 'wf-inactive');
+    }
+})();
+        </script>
+    </head>
+    <body>
+        <h1>Local Storage Font Technique</h1>
+        <!-- the strong in the em doesn't seem to work -->
+        <p>Copied off <strong>Andy Hume / The Guardian</strong>. <em>With a sprinkling of rip off from <strong>Google Web Fonts</strong>.</em></p>
+    </body>
+</html>
