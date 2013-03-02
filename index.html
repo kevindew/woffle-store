@@ -74,12 +74,19 @@ var webFonts = {
     var insertFont = function(name, base64, properties) {
         var style = fontStyleElement;
         var sheet = style.sheet || style.styleSheet;
-        var rules = [];
-        rules.push('font-family:"' + name + '";src:url(data:application/x-font-woff;base64,' + base64 + ')');
+        var parts = [];
+        parts.push('font-family:"' + name + '";src:url(data:application/x-font-woff;base64,' + base64 + ')');
         for (var definition in properties) {
-            rules.push(definition + ':' + properties[definition]);
+            parts.push(definition + ':' + properties[definition]);
         }
-        sheet.insertRule('@font-face {' + rules.join(';') + '}', sheet.cssRules.length);
+
+        var rule = '@font-face {' + parts.join(';') + '}';
+
+        if (style.styleSheet) {
+            style.styleSheet.cssText += rule + "\n";
+        } else {
+            style.sheet.insertRule(rule, sheet.cssRules.length);    
+        }
     };
 
     var totalFonts = fonts.length;
